@@ -1,6 +1,7 @@
 package com.howard0720.natsdemo;
 
 import io.nats.client.*;
+import io.nats.client.api.KeyValueConfiguration;
 import io.nats.client.api.RetentionPolicy;
 import io.nats.client.api.StorageType;
 import io.nats.client.api.StreamConfiguration;
@@ -24,6 +25,8 @@ public class NatsConfig {
     @Value("${nats.stream.subjects:demo.>}")
     private String streamSubjects;
 
+    private Connection natsConnection;
+
     @Bean
     public Connection natsConnection() throws IOException, InterruptedException {
         Options options = new Options.Builder()
@@ -40,10 +43,10 @@ public class NatsConfig {
                 })
                 .build();
 
-        Connection connection = Nats.connect(options);
+        natsConnection = Nats.connect(options);
         log.info("Connected to NATS server: {}", natsUrl);
 
-        return connection;
+        return natsConnection;
     }
 
     @Bean
@@ -51,6 +54,27 @@ public class NatsConfig {
         JetStream jetStream = connection.jetStream();
         log.info("JetStream initialized");
         return jetStream;
+    }
+
+    @Bean
+    public KeyValue keyValue() {
+        String bucketName = "demo-bucket";
+        try {
+            KeyValueConfiguration config = KeyValueConfiguration.builder()
+                    .name(bucketName)
+                    .storageType(StorageType.File)
+                    .maxHistoryPerKey(10) // 每個 key 保留 10 個歷史版本
+                    .ttl(Duration.ofHours(24)) // 24 小時過期
+                    .build();
+
+            natsConnection.keyValueManagement().create(config);
+            KeyValue keyValue = natsConnection.keyValue(bucketName);
+            log.info("KV Bucket '{}' created", bucketName);
+            return keyValue;
+        } catch (Exception e) {
+            log.info("KV Bucket '{}' already exists", bucketName);
+        }
+        return null;
     }
 
     @Bean

@@ -21,33 +21,17 @@ import java.util.List;
 @Slf4j
 public class KvStoreService {
     private final Connection natsConnection;
-    private KeyValue keyValue;
+    private final KeyValue keyValue;
 
-    public KvStoreService(Connection natsConnection) {
+    public KvStoreService(Connection natsConnection, KeyValue keyValue) {
         this.natsConnection = natsConnection;
+        this.keyValue = keyValue;
     }
 
     @PostConstruct
     public void init() throws IOException, InterruptedException {
         // 建立或取得 KV Bucket
         String bucketName = "demo-bucket";
-
-        try {
-            KeyValueConfiguration config = KeyValueConfiguration.builder()
-                    .name(bucketName)
-                    .storageType(StorageType.File)
-                    .maxHistoryPerKey(10) // 每個 key 保留 10 個歷史版本
-                    .ttl(Duration.ofHours(24)) // 24 小時過期
-                    .build();
-
-            natsConnection.keyValueManagement().create(config);
-            keyValue = natsConnection.keyValue(bucketName);
-            log.info("KV Bucket '{}' created", bucketName);
-        } catch (Exception e) {
-            // Bucket 已存在,直接取得
-            keyValue = natsConnection.keyValue(bucketName);
-            log.info("KV Bucket '{}' already exists", bucketName);
-        }
     }
 
     /**
